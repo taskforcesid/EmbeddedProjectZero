@@ -24,6 +24,8 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include <stdio.h>
+//#include "stm32l475e_iot01.h"
+#include "stm32l475e_iot01_tsensor.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -43,11 +45,7 @@
 /* Private variables ---------------------------------------------------------*/
 DFSDM_Channel_HandleTypeDef hdfsdm1_channel1;
 
-I2C_HandleTypeDef hi2c2;
-
 QSPI_HandleTypeDef hqspi;
-
-SPI_HandleTypeDef hspi3;
 
 UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart3;
@@ -75,6 +73,10 @@ static void MX_USB_OTG_FS_PCD_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
+int MODE = 1;
+int SHOW_LABEL = 1;
+
+int printInformation(void);
 /* USER CODE END 0 */
 
 /**
@@ -113,20 +115,16 @@ int main(void)
   MX_USART3_UART_Init();
   MX_USB_OTG_FS_PCD_Init();
   /* USER CODE BEGIN 2 */
-  HAL_GPIO_TogglePin(ARD_D1_GPIO_Port, ARD_D1_Pin);
-  //HAL_GPIO_TogglePin(ARD_D3_GPIO_Port, ARD_D3_Pin);
-  HAL_GPIO_TogglePin(ARD_D5_GPIO_Port, ARD_D5_Pin);
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+  BSP_TSENSOR_Init();
   while (1)
   {
-	  printf("Hello Final Project\n");
+	  printInformation();
 
-	  GPIO_PinState bitstatus = HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_2);
-
-	  HAL_Delay(1000);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -140,73 +138,73 @@ int main(void)
   */
 void SystemClock_Config(void)
 {
-  RCC_OscInitTypeDef RCC_OscInitStruct = {0};
-  RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
-  RCC_PeriphCLKInitTypeDef PeriphClkInit = {0};
+  LL_FLASH_SetLatency(LL_FLASH_LATENCY_4);
 
-  /** Configure LSE Drive Capability 
-  */
-  HAL_PWR_EnableBkUpAccess();
-  __HAL_RCC_LSEDRIVE_CONFIG(RCC_LSEDRIVE_LOW);
-  /** Initializes the CPU, AHB and APB busses clocks 
-  */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_LSE|RCC_OSCILLATORTYPE_MSI;
-  RCC_OscInitStruct.LSEState = RCC_LSE_ON;
-  RCC_OscInitStruct.MSIState = RCC_MSI_ON;
-  RCC_OscInitStruct.MSICalibrationValue = 0;
-  RCC_OscInitStruct.MSIClockRange = RCC_MSIRANGE_6;
-  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_MSI;
-  RCC_OscInitStruct.PLL.PLLM = 1;
-  RCC_OscInitStruct.PLL.PLLN = 40;
-  RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV7;
-  RCC_OscInitStruct.PLL.PLLQ = RCC_PLLQ_DIV2;
-  RCC_OscInitStruct.PLL.PLLR = RCC_PLLR_DIV2;
-  if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
+  if(LL_FLASH_GetLatency() != LL_FLASH_LATENCY_4)
   {
-    Error_Handler();
+  Error_Handler();  
   }
-  /** Initializes the CPU, AHB and APB busses clocks 
-  */
-  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
-                              |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
-  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
-  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
-  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
+  LL_PWR_SetRegulVoltageScaling(LL_PWR_REGU_VOLTAGE_SCALE1);
+  LL_RCC_MSI_Enable();
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_4) != HAL_OK)
+   /* Wait till MSI is ready */
+  while(LL_RCC_MSI_IsReady() != 1)
   {
-    Error_Handler();
+    
   }
-  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_USART1|RCC_PERIPHCLK_USART3
-                              |RCC_PERIPHCLK_I2C2|RCC_PERIPHCLK_DFSDM1
-                              |RCC_PERIPHCLK_USB;
-  PeriphClkInit.Usart1ClockSelection = RCC_USART1CLKSOURCE_PCLK2;
-  PeriphClkInit.Usart3ClockSelection = RCC_USART3CLKSOURCE_PCLK1;
-  PeriphClkInit.I2c2ClockSelection = RCC_I2C2CLKSOURCE_PCLK1;
-  PeriphClkInit.Dfsdm1ClockSelection = RCC_DFSDM1CLKSOURCE_PCLK;
-  PeriphClkInit.UsbClockSelection = RCC_USBCLKSOURCE_PLLSAI1;
-  PeriphClkInit.PLLSAI1.PLLSAI1Source = RCC_PLLSOURCE_MSI;
-  PeriphClkInit.PLLSAI1.PLLSAI1M = 1;
-  PeriphClkInit.PLLSAI1.PLLSAI1N = 24;
-  PeriphClkInit.PLLSAI1.PLLSAI1P = RCC_PLLP_DIV7;
-  PeriphClkInit.PLLSAI1.PLLSAI1Q = RCC_PLLQ_DIV2;
-  PeriphClkInit.PLLSAI1.PLLSAI1R = RCC_PLLR_DIV2;
-  PeriphClkInit.PLLSAI1.PLLSAI1ClockOut = RCC_PLLSAI1_48M2CLK;
-  if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
+  LL_RCC_MSI_EnablePLLMode();
+  LL_RCC_MSI_EnableRangeSelection();
+  LL_RCC_MSI_SetRange(LL_RCC_MSIRANGE_6);
+  LL_RCC_MSI_SetCalibTrimming(0);
+  LL_PWR_EnableBkUpAccess();
+  LL_RCC_LSE_SetDriveCapability(LL_RCC_LSEDRIVE_LOW);
+  LL_RCC_LSE_Enable();
+
+   /* Wait till LSE is ready */
+  while(LL_RCC_LSE_IsReady() != 1)
   {
-    Error_Handler();
+    
   }
-  /** Configure the main internal regulator output voltage 
-  */
-  if (HAL_PWREx_ControlVoltageScaling(PWR_REGULATOR_VOLTAGE_SCALE1) != HAL_OK)
+  LL_RCC_PLL_ConfigDomain_SYS(LL_RCC_PLLSOURCE_MSI, LL_RCC_PLLM_DIV_1, 40, LL_RCC_PLLR_DIV_2);
+  LL_RCC_PLL_EnableDomain_SYS();
+  LL_RCC_PLL_Enable();
+
+   /* Wait till PLL is ready */
+  while(LL_RCC_PLL_IsReady() != 1)
   {
-    Error_Handler();
+    
   }
-  /** Enable MSI Auto calibration 
-  */
-  HAL_RCCEx_EnableMSIPLLMode();
+  LL_RCC_PLLSAI1_ConfigDomain_48M(LL_RCC_PLLSOURCE_MSI, LL_RCC_PLLM_DIV_1, 24, LL_RCC_PLLSAI1Q_DIV_2);
+  LL_RCC_PLLSAI1_EnableDomain_48M();
+  LL_RCC_PLLSAI1_Enable();
+
+   /* Wait till PLLSAI1 is ready */
+  while(LL_RCC_PLLSAI1_IsReady() != 1)
+  {
+    
+  }
+  LL_RCC_SetSysClkSource(LL_RCC_SYS_CLKSOURCE_PLL);
+
+   /* Wait till System clock is ready */
+  while(LL_RCC_GetSysClkSource() != LL_RCC_SYS_CLKSOURCE_STATUS_PLL)
+  {
+  
+  }
+  LL_RCC_SetAHBPrescaler(LL_RCC_SYSCLK_DIV_1);
+  LL_RCC_SetAPB1Prescaler(LL_RCC_APB1_DIV_1);
+  LL_RCC_SetAPB2Prescaler(LL_RCC_APB2_DIV_1);
+  LL_SetSystemCoreClock(80000000);
+
+   /* Update the time base */
+  if (HAL_InitTick (TICK_INT_PRIORITY) != HAL_OK)
+  {
+    Error_Handler();  
+  };
+  LL_RCC_SetUSARTClockSource(LL_RCC_USART1_CLKSOURCE_PCLK2);
+  LL_RCC_SetUSARTClockSource(LL_RCC_USART3_CLKSOURCE_PCLK1);
+  LL_RCC_SetI2CClockSource(LL_RCC_I2C2_CLKSOURCE_PCLK1);
+  LL_RCC_SetUSBClockSource(LL_RCC_USB_CLKSOURCE_PLLSAI1);
+  LL_RCC_SetDFSDMClockSource(LL_RCC_DFSDM_CLKSOURCE_PCLK);
 }
 
 /**
@@ -259,34 +257,44 @@ static void MX_I2C2_Init(void)
 
   /* USER CODE END I2C2_Init 0 */
 
+  LL_I2C_InitTypeDef I2C_InitStruct = {0};
+
+  LL_GPIO_InitTypeDef GPIO_InitStruct = {0};
+
+  LL_AHB2_GRP1_EnableClock(LL_AHB2_GRP1_PERIPH_GPIOB);
+  /**I2C2 GPIO Configuration  
+  PB10   ------> I2C2_SCL
+  PB11   ------> I2C2_SDA 
+  */
+  GPIO_InitStruct.Pin = LL_GPIO_PIN_10|LL_GPIO_PIN_11;
+  GPIO_InitStruct.Mode = LL_GPIO_MODE_ALTERNATE;
+  GPIO_InitStruct.Speed = LL_GPIO_SPEED_FREQ_VERY_HIGH;
+  GPIO_InitStruct.OutputType = LL_GPIO_OUTPUT_OPENDRAIN;
+  GPIO_InitStruct.Pull = LL_GPIO_PULL_UP;
+  GPIO_InitStruct.Alternate = LL_GPIO_AF_4;
+  LL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+  /* Peripheral clock enable */
+  LL_APB1_GRP1_EnableClock(LL_APB1_GRP1_PERIPH_I2C2);
+
   /* USER CODE BEGIN I2C2_Init 1 */
 
   /* USER CODE END I2C2_Init 1 */
-  hi2c2.Instance = I2C2;
-  hi2c2.Init.Timing = 0x00000E14;
-  hi2c2.Init.OwnAddress1 = 0;
-  hi2c2.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
-  hi2c2.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
-  hi2c2.Init.OwnAddress2 = 0;
-  hi2c2.Init.OwnAddress2Masks = I2C_OA2_NOMASK;
-  hi2c2.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
-  hi2c2.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
-  if (HAL_I2C_Init(&hi2c2) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /** Configure Analogue filter 
+  /** I2C Initialization 
   */
-  if (HAL_I2CEx_ConfigAnalogFilter(&hi2c2, I2C_ANALOGFILTER_ENABLE) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /** Configure Digital filter 
-  */
-  if (HAL_I2CEx_ConfigDigitalFilter(&hi2c2, 0) != HAL_OK)
-  {
-    Error_Handler();
-  }
+  LL_I2C_EnableAutoEndMode(I2C2);
+  LL_I2C_DisableOwnAddress2(I2C2);
+  LL_I2C_DisableGeneralCall(I2C2);
+  LL_I2C_EnableClockStretching(I2C2);
+  I2C_InitStruct.PeripheralMode = LL_I2C_MODE_I2C;
+  I2C_InitStruct.Timing = 0x00000E14;
+  I2C_InitStruct.AnalogFilter = LL_I2C_ANALOGFILTER_ENABLE;
+  I2C_InitStruct.DigitalFilter = 0;
+  I2C_InitStruct.OwnAddress1 = 0;
+  I2C_InitStruct.TypeAcknowledge = LL_I2C_ACK;
+  I2C_InitStruct.OwnAddrSize = LL_I2C_OWNADDRESS1_7BIT;
+  LL_I2C_Init(I2C2, &I2C_InitStruct);
+  LL_I2C_SetOwnAddress2(I2C2, 0, LL_I2C_OWNADDRESS2_NOMASK);
   /* USER CODE BEGIN I2C2_Init 2 */
 
   /* USER CODE END I2C2_Init 2 */
@@ -338,28 +346,44 @@ static void MX_SPI3_Init(void)
 
   /* USER CODE END SPI3_Init 0 */
 
+  LL_SPI_InitTypeDef SPI_InitStruct = {0};
+
+  LL_GPIO_InitTypeDef GPIO_InitStruct = {0};
+
+  /* Peripheral clock enable */
+  LL_APB1_GRP1_EnableClock(LL_APB1_GRP1_PERIPH_SPI3);
+  
+  LL_AHB2_GRP1_EnableClock(LL_AHB2_GRP1_PERIPH_GPIOC);
+  /**SPI3 GPIO Configuration  
+  PC10   ------> SPI3_SCK
+  PC11   ------> SPI3_MISO
+  PC12   ------> SPI3_MOSI 
+  */
+  GPIO_InitStruct.Pin = LL_GPIO_PIN_10|LL_GPIO_PIN_11|LL_GPIO_PIN_12;
+  GPIO_InitStruct.Mode = LL_GPIO_MODE_ALTERNATE;
+  GPIO_InitStruct.Speed = LL_GPIO_SPEED_FREQ_VERY_HIGH;
+  GPIO_InitStruct.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
+  GPIO_InitStruct.Pull = LL_GPIO_PULL_NO;
+  GPIO_InitStruct.Alternate = LL_GPIO_AF_6;
+  LL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+
   /* USER CODE BEGIN SPI3_Init 1 */
 
   /* USER CODE END SPI3_Init 1 */
   /* SPI3 parameter configuration*/
-  hspi3.Instance = SPI3;
-  hspi3.Init.Mode = SPI_MODE_MASTER;
-  hspi3.Init.Direction = SPI_DIRECTION_2LINES;
-  hspi3.Init.DataSize = SPI_DATASIZE_4BIT;
-  hspi3.Init.CLKPolarity = SPI_POLARITY_LOW;
-  hspi3.Init.CLKPhase = SPI_PHASE_1EDGE;
-  hspi3.Init.NSS = SPI_NSS_SOFT;
-  hspi3.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
-  hspi3.Init.FirstBit = SPI_FIRSTBIT_MSB;
-  hspi3.Init.TIMode = SPI_TIMODE_DISABLE;
-  hspi3.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
-  hspi3.Init.CRCPolynomial = 7;
-  hspi3.Init.CRCLength = SPI_CRC_LENGTH_DATASIZE;
-  hspi3.Init.NSSPMode = SPI_NSS_PULSE_ENABLE;
-  if (HAL_SPI_Init(&hspi3) != HAL_OK)
-  {
-    Error_Handler();
-  }
+  SPI_InitStruct.TransferDirection = LL_SPI_FULL_DUPLEX;
+  SPI_InitStruct.Mode = LL_SPI_MODE_MASTER;
+  SPI_InitStruct.DataWidth = LL_SPI_DATAWIDTH_4BIT;
+  SPI_InitStruct.ClockPolarity = LL_SPI_POLARITY_LOW;
+  SPI_InitStruct.ClockPhase = LL_SPI_PHASE_1EDGE;
+  SPI_InitStruct.NSS = LL_SPI_NSS_SOFT;
+  SPI_InitStruct.BaudRate = LL_SPI_BAUDRATEPRESCALER_DIV2;
+  SPI_InitStruct.BitOrder = LL_SPI_MSB_FIRST;
+  SPI_InitStruct.CRCCalculation = LL_SPI_CRCCALCULATION_DISABLE;
+  SPI_InitStruct.CRCPoly = 7;
+  LL_SPI_Init(SPI3, &SPI_InitStruct);
+  LL_SPI_SetStandard(SPI3, LL_SPI_PROTOCOL_MOTOROLA);
+  LL_SPI_EnableNSSPulseMgt(SPI3);
   /* USER CODE BEGIN SPI3_Init 2 */
 
   /* USER CODE END SPI3_Init 2 */
@@ -549,9 +573,9 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pins : ARD_D10_Pin SPBTLE_RF_RST_Pin ARD_D9_Pin */
   GPIO_InitStruct.Pin = ARD_D10_Pin|SPBTLE_RF_RST_Pin|ARD_D9_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
-  //GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /*Configure GPIO pin : ARD_D4_Pin */
@@ -659,11 +683,139 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+
+
+int printInformation (void)
+{
+	switch(MODE){
+		  /* "Demo 1: LL APIs".  Use the following APIs during demo 1:
+		   * (a) get flash size  LL_GetFlashSize(); (b) get the device
+		   * unique ID, LL_GetUID_Wordn(); c3) toggle the LED, LL_GPIO_TogglePin()
+		   * at a 1 second rate. Display the Flash Size and GUID only when demo begins,
+		   * but keep flashing the LED every 1 second until the Blue Button is pressed to
+		   * advance to next demo.
+		   *
+		   * */
+		  case 1:
+			  if(SHOW_LABEL)
+			  {
+				  uint32_t flashSize= LL_GetFlashSize();
+				  uint32_t deviceIdentifier[3];
+				  deviceIdentifier[0] = LL_GetUID_Word0();
+				  deviceIdentifier[1] = LL_GetUID_Word1();
+				  deviceIdentifier[2] = LL_GetUID_Word2();
+				  printf("Demo 1: LL APIs - ");
+				  printf("Flash size: %lx Device Identifier: %lx%lx%lx\n",
+					  flashSize, deviceIdentifier[0], deviceIdentifier[1], deviceIdentifier[2]);
+				  SHOW_LABEL = 0;
+			  }
+			  LL_GPIO_TogglePin(GPIOB, LED2_Pin);
+			  LL_mDelay(1000);
+		  break;
+		  /*
+		   * Demo 2: HAL APIs". Use the following HAL APIs during demo 2: (a)
+		   * get the device ID, HAL_GetDEVID(), (b) read the device unique ID,
+		   * HAL_GetUIDwn(), and  (c)toggle the LED, HAL_GPIO_TogglePin() at
+		   * a 2 second rate, using HAL_Delay() to sleep for the 2 seconds.
+		   * Display the Dev ID info only when demo 2 begins, but keep flashing
+		   * the LED every 2 second until the Blue Button is pressed to advance to next demo.
+		   */
+		  case 2:
+			  if(SHOW_LABEL)
+			  {
+				  HAL_GetDEVID();
+				  uint32_t deviceIdentifier[3];
+				  deviceIdentifier[0] = HAL_GetUIDw0();
+				  deviceIdentifier[1] = HAL_GetUIDw1();
+				  deviceIdentifier[2] = HAL_GetUIDw2();
+				  printf("Demo 2: HAL APIs - ");
+				  printf("Device Identifier: %lx%lx%lx\n",
+						  deviceIdentifier[0], deviceIdentifier[1], deviceIdentifier[2]);
+				  SHOW_LABEL = 0;
+			  }
+			  HAL_GPIO_TogglePin(GPIOB, LED2_Pin);
+			  HAL_Delay(2000);
+
+		  break;
+		  /*
+		   * = "Demo 3: BSP APIs". Use the following BSP APIs during demo 3:
+		   * (a) read the temperature, BSP_TSENSOR_ReadTemp() (b) turn the LED
+		   *  on every 3 seconds with BSP_LED_On() (c)  turn LED off, every 3
+		   *  seconds with BSP_LED_Off(). In other words the LED should blink
+		   *  on/off at a 3-second rate (3 seconds on, 3 seconds off). Continue this
+		   *  until the Blue Button pressed to advance to the next demo.
+		   */
+		  case 3:
+			  if(SHOW_LABEL)
+			  {
+				  float temp = BSP_TSENSOR_ReadTemp();
+				  printf("Demo 3: BSP APIs - ");
+				  printf("Temperature: %.2f\n", temp);
+				  SHOW_LABEL = 0;
+			  }
+
+			  if( HAL_GPIO_ReadPin(GPIOB, LED2_Pin) == GPIO_PIN_SET)
+			  {
+				BSP_LED_Off(LED2);
+			  }
+			  else
+			  {
+				  BSP_LED_On(LED2);
+			  }
+			  HAL_Delay(3000);
+		  break;
+		  case 4:
+			  if(SHOW_LABEL)
+			  {
+				  printf("Demo 4: BONUS - ");
+				  printf("TBD\n");
+				  SHOW_LABEL = 0;
+			  }
+			  HAL_GPIO_TogglePin(GPIOB, LED2_Pin);
+			  HAL_Delay(4000);
+		  break;
+		  default:
+			  if(SHOW_LABEL)
+			  {
+				  SHOW_LABEL = 0;
+				  printf("TBD\n");
+			  }
+
+	  }
+	return 0;
+}
+
+
+int __io_putchar (int ch)
+{
+	uint8_t c[1];
+	c[0] = ch & 0x00FF;
+	HAL_UART_Transmit(&huart1, &*c, 1, 10);
+	return ch;
+}
+
+int _write (int file, char *ptr, int len)
+{
+	int DataIdx;
+	for(DataIdx = 0; DataIdx < len; DataIdx++)
+	{
+		__io_putchar(*ptr++);
+	}
+	return len;
+}
+
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
-	UNUSED(GPIO_Pin);
+//	UNUSED(GPIO_Pin);
 
-	HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
+//	HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
+
+	SHOW_LABEL = 1;
+	MODE++;
+	if(MODE > 4)
+		MODE = 1;
+
+	MODE = 3;
 }
 /* USER CODE END 4 */
 
