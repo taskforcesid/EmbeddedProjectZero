@@ -24,6 +24,8 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 //#include "stm32l475e_iot01.h"
 #include "stm32l475e_iot01_tsensor.h"
 /* USER CODE END Includes */
@@ -43,10 +45,13 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+ADC_HandleTypeDef hadc1;
+
 DFSDM_Channel_HandleTypeDef hdfsdm1_channel1;
 
 QSPI_HandleTypeDef hqspi;
 
+UART_HandleTypeDef huart4;
 UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart3;
 
@@ -66,6 +71,8 @@ static void MX_SPI3_Init(void);
 static void MX_USART1_UART_Init(void);
 static void MX_USART3_UART_Init(void);
 static void MX_USB_OTG_FS_PCD_Init(void);
+static void MX_UART4_Init(void);
+static void MX_ADC1_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -75,6 +82,8 @@ static void MX_USB_OTG_FS_PCD_Init(void);
 
 int MODE = 1;
 int SHOW_LABEL = 1;
+uint32_t voltage = 0;
+uint32_t adcResult;
 
 int printInformation(void);
 /* USER CODE END 0 */
@@ -114,6 +123,8 @@ int main(void)
   MX_USART1_UART_Init();
   MX_USART3_UART_Init();
   MX_USB_OTG_FS_PCD_Init();
+  MX_UART4_Init();
+  MX_ADC1_Init();
   /* USER CODE BEGIN 2 */
 
   /* USER CODE END 2 */
@@ -175,7 +186,9 @@ void SystemClock_Config(void)
     
   }
   LL_RCC_PLLSAI1_ConfigDomain_48M(LL_RCC_PLLSOURCE_MSI, LL_RCC_PLLM_DIV_1, 24, LL_RCC_PLLSAI1Q_DIV_2);
+  LL_RCC_PLLSAI1_ConfigDomain_ADC(LL_RCC_PLLSOURCE_MSI, LL_RCC_PLLM_DIV_1, 24, LL_RCC_PLLSAI1R_DIV_2);
   LL_RCC_PLLSAI1_EnableDomain_48M();
+  LL_RCC_PLLSAI1_EnableDomain_ADC();
   LL_RCC_PLLSAI1_Enable();
 
    /* Wait till PLLSAI1 is ready */
@@ -202,9 +215,76 @@ void SystemClock_Config(void)
   };
   LL_RCC_SetUSARTClockSource(LL_RCC_USART1_CLKSOURCE_PCLK2);
   LL_RCC_SetUSARTClockSource(LL_RCC_USART3_CLKSOURCE_PCLK1);
+  LL_RCC_SetUARTClockSource(LL_RCC_UART4_CLKSOURCE_PCLK1);
   LL_RCC_SetI2CClockSource(LL_RCC_I2C2_CLKSOURCE_PCLK1);
   LL_RCC_SetUSBClockSource(LL_RCC_USB_CLKSOURCE_PLLSAI1);
+  LL_RCC_SetADCClockSource(LL_RCC_ADC_CLKSOURCE_PLLSAI1);
   LL_RCC_SetDFSDMClockSource(LL_RCC_DFSDM_CLKSOURCE_PCLK);
+}
+
+/**
+  * @brief ADC1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_ADC1_Init(void)
+{
+
+  /* USER CODE BEGIN ADC1_Init 0 */
+
+  /* USER CODE END ADC1_Init 0 */
+
+  ADC_MultiModeTypeDef multimode = {0};
+  ADC_ChannelConfTypeDef sConfig = {0};
+
+  /* USER CODE BEGIN ADC1_Init 1 */
+
+  /* USER CODE END ADC1_Init 1 */
+  /** Common config 
+  */
+  hadc1.Instance = ADC1;
+  hadc1.Init.ClockPrescaler = ADC_CLOCK_ASYNC_DIV1;
+  hadc1.Init.Resolution = ADC_RESOLUTION_12B;
+  hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
+  hadc1.Init.ScanConvMode = ADC_SCAN_DISABLE;
+  hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
+  hadc1.Init.LowPowerAutoWait = DISABLE;
+  hadc1.Init.ContinuousConvMode = DISABLE;
+  hadc1.Init.NbrOfConversion = 1;
+  hadc1.Init.DiscontinuousConvMode = DISABLE;
+  hadc1.Init.NbrOfDiscConversion = 1;
+  hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+  hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
+  hadc1.Init.DMAContinuousRequests = DISABLE;
+  hadc1.Init.Overrun = ADC_OVR_DATA_PRESERVED;
+  hadc1.Init.OversamplingMode = DISABLE;
+  if (HAL_ADC_Init(&hadc1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /** Configure the ADC multi-mode 
+  */
+  multimode.Mode = ADC_MODE_INDEPENDENT;
+  if (HAL_ADCEx_MultiModeConfigChannel(&hadc1, &multimode) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /** Configure Regular Channel 
+  */
+  sConfig.Channel = ADC_CHANNEL_14;
+  sConfig.Rank = ADC_REGULAR_RANK_1;
+  sConfig.SamplingTime = ADC_SAMPLETIME_2CYCLES_5;
+  sConfig.SingleDiff = ADC_SINGLE_ENDED;
+  sConfig.OffsetNumber = ADC_OFFSET_NONE;
+  sConfig.Offset = 0;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN ADC1_Init 2 */
+
+  /* USER CODE END ADC1_Init 2 */
+
 }
 
 /**
@@ -391,6 +471,41 @@ static void MX_SPI3_Init(void)
 }
 
 /**
+  * @brief UART4 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_UART4_Init(void)
+{
+
+  /* USER CODE BEGIN UART4_Init 0 */
+
+  /* USER CODE END UART4_Init 0 */
+
+  /* USER CODE BEGIN UART4_Init 1 */
+
+  /* USER CODE END UART4_Init 1 */
+  huart4.Instance = UART4;
+  huart4.Init.BaudRate = 115200;
+  huart4.Init.WordLength = UART_WORDLENGTH_8B;
+  huart4.Init.StopBits = UART_STOPBITS_1;
+  huart4.Init.Parity = UART_PARITY_NONE;
+  huart4.Init.Mode = UART_MODE_TX_RX;
+  huart4.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart4.Init.OverSampling = UART_OVERSAMPLING_16;
+  huart4.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
+  huart4.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
+  if (HAL_UART_Init(&huart4) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN UART4_Init 2 */
+
+  /* USER CODE END UART4_Init 2 */
+
+}
+
+/**
   * @brief USART1 Initialization Function
   * @param None
   * @retval None
@@ -555,22 +670,6 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(BUTTON_EXTI13_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : ARD_A5_Pin ARD_A4_Pin ARD_A3_Pin ARD_A2_Pin 
-                           ARD_A1_Pin ARD_A0_Pin */
-  GPIO_InitStruct.Pin = ARD_A5_Pin|ARD_A4_Pin|ARD_A3_Pin|ARD_A2_Pin 
-                          |ARD_A1_Pin|ARD_A0_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_ANALOG_ADC_CONTROL;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
-
-  /*Configure GPIO pins : ARD_D1_Pin ARD_D0_Pin */
-  GPIO_InitStruct.Pin = ARD_D1_Pin|ARD_D0_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
-  GPIO_InitStruct.Alternate = GPIO_AF8_UART4;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
   /*Configure GPIO pins : ARD_D10_Pin SPBTLE_RF_RST_Pin ARD_D9_Pin */
   GPIO_InitStruct.Pin = ARD_D10_Pin|SPBTLE_RF_RST_Pin|ARD_D9_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
@@ -586,12 +685,6 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Alternate = GPIO_AF1_TIM2;
   HAL_GPIO_Init(ARD_D4_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : ARD_D7_Pin */
-  GPIO_InitStruct.Pin = ARD_D7_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_ANALOG_ADC_CONTROL;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(ARD_D7_GPIO_Port, &GPIO_InitStruct);
-
   /*Configure GPIO pins : ARD_D13_Pin ARD_D12_Pin ARD_D11_Pin */
   GPIO_InitStruct.Pin = ARD_D13_Pin|ARD_D12_Pin|ARD_D11_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
@@ -605,12 +698,6 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(ARD_D3_GPIO_Port, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : ARD_D6_Pin */
-  GPIO_InitStruct.Pin = ARD_D6_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_ANALOG_ADC_CONTROL;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(ARD_D6_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pins : ARD_D8_Pin ISM43362_BOOT0_Pin ISM43362_WAKEUP_Pin LED2_Pin 
                            SPSGRF_915_SDN_Pin ARD_D5_Pin SPSGRF_915_SPI3_CSN_Pin */
@@ -704,7 +791,7 @@ int printInformation (void)
 				  deviceIdentifier[0] = LL_GetUID_Word0();
 				  deviceIdentifier[1] = LL_GetUID_Word1();
 				  deviceIdentifier[2] = LL_GetUID_Word2();
-				  printf("Demo 1: LL APIs - ");
+				  printf("Demo 1: LL APIs - \n");
 				  printf("Flash size: %lx Device Identifier: %lx%lx%lx\n",
 					  flashSize, deviceIdentifier[0], deviceIdentifier[1], deviceIdentifier[2]);
 				  SHOW_LABEL = 0;
@@ -723,14 +810,16 @@ int printInformation (void)
 		  case 2:
 			  if(SHOW_LABEL)
 			  {
-				  HAL_GetDEVID();
-				  uint32_t deviceIdentifier[3];
-				  deviceIdentifier[0] = HAL_GetUIDw0();
-				  deviceIdentifier[1] = HAL_GetUIDw1();
-				  deviceIdentifier[2] = HAL_GetUIDw2();
-				  printf("Demo 2: HAL APIs - ");
-				  printf("Device Identifier: %lx%lx%lx\n",
-						  deviceIdentifier[0], deviceIdentifier[1], deviceIdentifier[2]);
+				  uint32_t deviceIdentifier;
+				  deviceIdentifier = HAL_GetDEVID();
+				  uint32_t uniqueIdentifier[3];
+				  uniqueIdentifier[0] = HAL_GetUIDw0();
+				  uniqueIdentifier[1] = HAL_GetUIDw1();
+				  uniqueIdentifier[2] = HAL_GetUIDw2();
+				  printf("Demo 2: HAL APIs - \n");
+				  printf("Device Identifier: %lx\n", deviceIdentifier);
+				  printf("Unique Identifier: %lx%lx%lx\n",
+						  uniqueIdentifier[0],uniqueIdentifier[1],uniqueIdentifier[2]);
 				  SHOW_LABEL = 0;
 			  }
 			  HAL_GPIO_TogglePin(GPIOB, LED2_Pin);
@@ -765,11 +854,32 @@ int printInformation (void)
 			  HAL_Delay(3000);
 		  break;
 		  case 4:
+
+			  HAL_ADC_Start(&hadc1);
+			  HAL_ADC_PollForConversion(&hadc1, 100);
+			  adcResult = HAL_ADC_GetValue(&hadc1);
+
 			  if(SHOW_LABEL)
 			  {
-				  printf("Demo 4: BONUS - ");
-				  printf("TBD\n");
+				  printf("Demo 4: BONUS - Read ADC Value from GPIO and Send to Arduino via UART4\n");
+				  printf("ADC: %d\n", (int)adcResult);
 				  SHOW_LABEL = 0;
+			  }
+			  //If there is change in reading, transmit to UART4
+			  if(voltage != adcResult)
+			  {
+				  voltage = adcResult;
+
+				  char buffer[10];
+				  itoa(voltage, buffer, 10);
+				  for(int i=0; i < strlen(buffer); i++)
+				  {
+					  HAL_UART_Transmit(&huart4, (uint8_t *)&buffer[i], 1, 0);
+					  HAL_Delay(10);
+				  }
+				  char stop[1];
+				  stop[0] = '*';
+				  HAL_UART_Transmit(&huart4, (uint8_t *)&stop[0], 1, 0);
 			  }
 			  HAL_GPIO_TogglePin(GPIOB, LED2_Pin);
 			  HAL_Delay(4000);
@@ -806,16 +916,11 @@ int _write (int file, char *ptr, int len)
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
-//	UNUSED(GPIO_Pin);
-
-//	HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
-
 	SHOW_LABEL = 1;
 	MODE++;
 	if(MODE > 4)
 		MODE = 1;
 
-	MODE = 3;
 }
 /* USER CODE END 4 */
 
